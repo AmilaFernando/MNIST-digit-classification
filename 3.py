@@ -255,3 +255,58 @@ model6.fit(X_train_noisy_25, Y_train, batch_size=128, epochs=15, validation_spli
 # Evaluate the model6
 score = model6.evaluate(X_test_noisy_25, Y_test, verbose=0)
 print("Model accuracy: ", score[1])
+
+# Try with Autoencoders
+
+
+# Encoding
+input_img_shape = keras.Input(shape=(28, 28, 1))
+
+x = layers.Conv2D(32, (3, 3), activation='relu', padding='same')(input_img_shape)
+x = layers.MaxPooling2D((2, 2), padding='same')(x)
+x = layers.Conv2D(32, (3, 3), activation='relu', padding='same')(x)
+encoded = layers.MaxPooling2D((2, 2), padding='same')(x)
+
+# Decoding
+
+x = layers.Conv2D(32, (3, 3), activation='relu', padding='same')(encoded)
+x = layers.UpSampling2D((2, 2))(x)
+x = layers.Conv2D(32, (3, 3), activation='relu', padding='same')(x)
+x = layers.UpSampling2D((2, 2))(x)
+decoded = layers.Conv2D(1, (3, 3), activation='sigmoid', padding='same')(x)
+
+autoencoder = keras.Model(input_img_shape, decoded)
+autoencoder.compile(optimizer='adam', loss='binary_crossentropy')
+
+# Add noise
+noise_factor = 0.25
+X_train_noisy_25 = X_train + noise_factor * np.random.normal(loc=0.0, scale=1.0, size=X_train.shape)
+X_test_noisy_25 = X_test + noise_factor * np.random.normal(loc=0.0, scale=1.0, size=X_test.shape)
+X_train_noisy_25 = np.clip(X_train_noisy_25, 0. , 1.)
+X_test_noisy_25 = np.clip(X_test_noisy_25, 0. , 1.)
+
+
+autoencoder.fit(X_train_noisy_25, X_train,
+                epochs=100,
+                batch_size=128,
+                shuffle=True,
+                validation_data=(X_test_noisy_25, X_test))
+
+all_denoised_images = autoencoder.predict(X_test_noisy_25)
+
+test_loss  = autoencoder.evaluate(X_test_noisy_25, X_test, batch_size = 20)
+
+print(test_loss)
+
+dimension = X_train.shape[1]
+n = 3
+for i in range(n):
+    fig, axes = plt.subplots(1, 3)
+    fig.set_size_inches(8, 2)
+    axes[0].set_title('Noisy image')
+    im0 = axes[0].imshow(X_test_noisy_25[i].reshape(dimension, dimension), cmap = 'Reds')
+    axes[1].set_title('Target image')
+    im1 = axes[1].imshow(X_test[i].reshape(dimension, dimension), cmap = 'Reds')
+    axes[2].set_title('Denoised image')
+    im2 = axes[2].imshow(all_denoised_images[i].reshape(dimension, dimension), cmap = 'Reds')
+    plt.savefig(f'comparison-{i}.png')
